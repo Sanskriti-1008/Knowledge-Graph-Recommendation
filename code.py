@@ -1,3 +1,17 @@
+"""
+Industry standard, PEP8-compliant Python module for suggesting the minimal set of unmastered prerequisite concepts
+for student mastery in an EdTech knowledge graph, using Personalized PageRank and a min-cost flow approach.
+
+Key Features:
+- Modular, scalable functions.
+- Handles directed cycles and ambiguous prerequisite paths.
+- Strong input validation and error handling.
+- All list validation is centralized for maintainability.
+- Thorough docstrings for comprehension.
+
+Assumes: networkx, numpy are installed.
+"""
+
 import networkx as nx
 import numpy as np
 from collections import defaultdict, deque
@@ -20,13 +34,13 @@ def validate_nonempty_list(obj, name):
 
 def validate_graph_and_nodes(graph: nx.DiGraph, concepts: Set[Any], target: Any):
     """
-    Validate graph type and check that all concept nodes and target exist in the graph.
+    Validates the graph type and checks if all concept nodes and the target exist in the graph.
     Args:
         graph: Prerequisite graph.
         concepts: Set or list of concept nodes.
         target: Target node.
     Raises:
-        ValueError: if validation fails.
+        ValueError: if check fails.
     """
     if not isinstance(graph, nx.DiGraph):
         raise ValueError(ERR_GRAPH_TYPE_MSG)

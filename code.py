@@ -1,16 +1,3 @@
-"""
-Industry standard, PEP8-compliant Python module for suggesting the minimal set of unmastered prerequisite concepts
-for student mastery in an EdTech knowledge graph, using Personalized PageRank and a min-cost flow approach.
-
-Key Features:
-- Modular, scalable functions.
-- Handles directed cycles and ambiguous prerequisite paths.
-- Strong input validation and error handling.
-- All core logic thoroughly documented for easy comprehension.
-
-Assumes: networkx, numpy are installed.
-"""
-
 import networkx as nx
 import numpy as np
 from collections import defaultdict, deque
@@ -22,28 +9,24 @@ ERR_LIST_MSG = "{} must be a non-empty list."
 def validate_nonempty_list(obj, name):
     """
     Validates that the provided object is a non-empty list.
-
     Args:
-        obj: Object to validate.
-        name: Name of the object (for error messages).
-
+        obj: Object to check.
+        name: Name for error reporting.
     Raises:
-        ValueError: If obj is not a list or is empty.
+        ValueError: if check fails.
     """
     if not isinstance(obj, list) or not obj:
         raise ValueError(ERR_LIST_MSG.format(name))
 
 def validate_graph_and_nodes(graph: nx.DiGraph, concepts: Set[Any], target: Any):
     """
-    Validates that the graph is a NetworkX DiGraph and that all specified nodes exist in the graph.
-
+    Validate graph type and check that all concept nodes and target exist in the graph.
     Args:
-        graph: The knowledge graph (NetworkX DiGraph).
-        concepts: Set or list of concept nodes to validate.
-        target: The target concept node.
-
+        graph: Prerequisite graph.
+        concepts: Set or list of concept nodes.
+        target: Target node.
     Raises:
-        ValueError: If the graph is not a DiGraph or if any concept/target nodes are missing.
+        ValueError: if validation fails.
     """
     if not isinstance(graph, nx.DiGraph):
         raise ValueError(ERR_GRAPH_TYPE_MSG)
@@ -58,16 +41,7 @@ def validate_graph_and_nodes(graph: nx.DiGraph, concepts: Set[Any], target: Any)
 
 def build_knowledge_graph(prerequisites: List[Tuple[Any, Any]]) -> nx.DiGraph:
     """
-    Builds a directed graph representing concept prerequisites.
-
-    Args:
-        prerequisites: List of tuples (prerequisite_concept, dependent_concept).
-
-    Returns:
-        NetworkX DiGraph representing the prerequisite structure.
-
-    Raises:
-        ValueError: If input prerequisites is not a non-empty list of 2-tuples.
+    Build the directed knowledge graph from prerequisites list.
     """
     validate_nonempty_list(prerequisites, "Prerequisites")
     if not all(isinstance(edge, tuple) and len(edge) == 2 for edge in prerequisites):
@@ -78,16 +52,7 @@ def build_knowledge_graph(prerequisites: List[Tuple[Any, Any]]) -> nx.DiGraph:
 
 def student_mastery_lookup(interactions: List[Tuple[Any, Any, bool]]) -> Dict[Any, Set[Any]]:
     """
-    Creates a mapping from student IDs to the set of mastered concepts.
-
-    Args:
-        interactions: List of tuples (student_id, concept_id, mastery_status).
-
-    Returns:
-        Dictionary mapping each student_id to a set of mastered concept_ids.
-
-    Raises:
-        ValueError: If interactions is not a non-empty list or contains invalid tuples.
+    Build a mapping from student_id to set of mastered concepts.
     """
     validate_nonempty_list(interactions, "Interactions")
     mastery = defaultdict(set)
@@ -105,27 +70,9 @@ def student_mastery_lookup(interactions: List[Tuple[Any, Any, bool]]) -> Dict[An
             mastery[student_id].add(concept_id)
     return dict(mastery)
 
-def personalized_pagerank(
-    graph: nx.DiGraph,
-    student_known: Set[Any],
-    target: Any,
-    alpha: float = 0.85,
-) -> Dict[Any, float]:
+def personalized_pagerank(graph: nx.DiGraph, student_known: Set[Any], target: Any, alpha: float = 0.85) -> Dict[Any, float]:
     """
-    Computes Personalized PageRank scores biased toward student's mastered concepts and the target.
-
-    Args:
-        graph: The prerequisite knowledge graph.
-        student_known: Set of concepts mastered by the student.
-        target: The target concept for which prerequisites are computed.
-        alpha: Damping factor for PageRank calculation (default 0.85).
-
-    Returns:
-        Dictionary mapping concept_id to their importance score.
-
-    Raises:
-        ValueError: For invalid inputs.
-        RuntimeError: If personalized PageRank computation fails.
+    Compute Personalized PageRank for graph.
     """
     validate_graph_and_nodes(graph, student_known, target)
     if not 0 < alpha <= 1:
@@ -143,22 +90,9 @@ def personalized_pagerank(
         raise RuntimeError(f"Personalized PageRank computation failed: {e}")
     return pr
 
-def bfs_collect_unmastered(
-    graph: nx.DiGraph, student_known: Set[Any], target: Any
-) -> (Set[Any], Set[Any]):
+def bfs_collect_unmastered(graph: nx.DiGraph, student_known: Set[Any], target: Any):
     """
-    Performs BFS to collect all unmastered concepts reachable from student's known concepts,
-    excluding the target concept.
-
-    Args:
-        graph: The knowledge graph.
-        student_known: Set of concepts the student already knows.
-        target: The target concept.
-
-    Returns:
-        A tuple containing:
-            - Set of unmastered prerequisite concepts found.
-            - Set of all visited nodes during BFS.
+    BFS to gather reachable unmastered prerequisite nodes, except target.
     """
     visited = set(student_known)
     queue = deque(student_known)
@@ -174,20 +108,9 @@ def bfs_collect_unmastered(
             queue.append(neighbor)
     return unmastered, visited
 
-def gather_path_unmastered(
-    graph: nx.DiGraph, student_known: Set[Any], target: Any, relevant_nodes: Set[Any]
-) -> Set[Any]:
+def gather_path_unmastered(graph: nx.DiGraph, student_known: Set[Any], target: Any, relevant_nodes: Set[Any]):
     """
-    Identifies unmastered prerequisite concepts along all simple paths from any known concept to the target.
-
-    Args:
-        graph: The knowledge graph.
-        student_known: Set of student's mastered concepts.
-        target: Target concept.
-        relevant_nodes: Nodes allowed in path search (to restrict graph size).
-
-    Returns:
-        Set of unmastered prerequisite concepts on these paths.
+    Collect unmastered concepts along all simple paths from any known node to the target.
     """
     path_unmastered = set()
     for start in student_known:
@@ -200,19 +123,9 @@ def gather_path_unmastered(
             continue
     return path_unmastered
 
-def find_unmastered_prerequisites(
-    graph: nx.DiGraph, student_known: Set[Any], target: Any
-) -> Set[Any]:
+def find_unmastered_prerequisites(graph: nx.DiGraph, student_known: Set[Any], target: Any) -> Set[Any]:
     """
-    Finds all unmastered prerequisite concepts required to master the target concept.
-
-    Args:
-        graph: The prerequisite knowledge graph.
-        student_known: Set of mastered concepts.
-        target: Target concept ID.
-
-    Returns:
-        Set of unmastered prerequisite concept IDs that the student needs to master.
+    Find all unmastered prerequisite concepts for a target.
     """
     validate_graph_and_nodes(graph, student_known, target)
     unmastered, visited = bfs_collect_unmastered(graph, student_known, target)
@@ -228,21 +141,7 @@ def min_cost_unmastered_path(
     pagerank_score: Dict[Any, float],
 ) -> Set[Any]:
     """
-    Uses a min-cost flow algorithm to find the smallest, most relevant set of unmastered prerequisite concepts
-    needed to connect the student's known concepts to the target.
-
-    Args:
-        graph: The knowledge graph.
-        student_known: Set of mastered concepts.
-        target: Target concept.
-        candidate_unmastered: Set of candidate unmastered concepts to consider.
-        pagerank_score: Personalized PageRank scores of all nodes.
-
-    Returns:
-        A minimal set of unmastered prerequisite concept IDs selected by the min-cost flow.
-    
-    Raises:
-        RuntimeError: If min-cost flow computation is infeasible.
+    Min-cost flow: minimal, most relevant unmastered prerequisite selection.
     """
     validate_graph_and_nodes(graph, student_known.union(candidate_unmastered), target)
     if not isinstance(pagerank_score, dict):
@@ -256,17 +155,15 @@ def min_cost_unmastered_path(
 
     for node in student_known:
         costed_graph.add_edge(source, node, capacity=1, weight=0)
-
     for u, v in subgraph.edges:
         weight = 1 - pagerank_score.get(v, 0.0)
         costed_graph.add_edge(u, v, capacity=1, weight=weight)
-
     for node in candidate_unmastered:
         split_node = f"{node}_IN"
         for pred in subgraph.predecessors(node):
             if pred != source:
-                weight = 1 - pagerank_score.get(node, 0.0)
-                costed_graph.add_edge(pred, split_node, capacity=1, weight=weight)
+                w = 1 - pagerank_score.get(node, 0.0)
+                costed_graph.add_edge(pred, split_node, capacity=1, weight=w)
         costed_graph.add_edge(split_node, node, capacity=1, weight=0)
 
     n_paths = len(student_known)
@@ -285,7 +182,6 @@ def min_cost_unmastered_path(
         split_node = f"{node}_IN"
         if flow_dict.get(split_node, {}).get(node, 0) > 0:
             selected.add(node)
-
     return selected
 
 def suggest_minimal_prerequisites(
@@ -295,20 +191,7 @@ def suggest_minimal_prerequisites(
     target_concept: Any,
 ) -> List[Tuple[Any, float]]:
     """
-    Top-level function that returns the minimal, most relevant set of unmastered prerequisite concepts
-    required by a student to master a target concept.
-
-    Args:
-        interactions: List of tuples (student_id, concept_id, mastery_status).
-        prerequisites: List of tuples (prerequisite_concept, dependent_concept).
-        student_id: The ID of the target student.
-        target_concept: The concept the student aims to master.
-
-    Returns:
-        List of tuples (concept_id, pagerank_score) sorted by descending relevance.
-
-    Raises:
-        ValueError: For invalid inputs or if student not present in interactions.
+    Main user-facing API: returns minimal, most relevant unmastered prerequisites the student needs for the target.
     """
     validate_nonempty_list(interactions, "Interactions")
     validate_nonempty_list(prerequisites, "Prerequisites")
@@ -321,25 +204,21 @@ def suggest_minimal_prerequisites(
     mastery = student_mastery_lookup(interactions)
     if student_id not in mastery:
         raise ValueError(f"Student ID '{student_id}' not found in mastery records.")
-
     student_known = mastery.get(student_id, set())
     pagerank_scores = personalized_pagerank(graph, student_known, target_concept)
     all_unmastered = find_unmastered_prerequisites(graph, student_known, target_concept)
-
     if not all_unmastered:
         return []
-
     minimal_set = min_cost_unmastered_path(
         graph, student_known, target_concept, all_unmastered, pagerank_scores
     )
-
-    result = [(concept, pagerank_scores.get(concept, 0.0)) for concept in minimal_set]
+    result = [(c, pagerank_scores.get(c, 0.0)) for c in minimal_set]
     result.sort(key=lambda x: -x[1])
     return result
 
 def main():
     """
-    Example usage entry point demonstrating minimal prerequisite suggestion for a sample student and target.
+    Example usage demonstration.
     """
     prerequisites = [
         ("Add", "Multiply"),
@@ -350,7 +229,6 @@ def main():
         ("Calculus", "AdvancedMath"),
         ("AdvancedMath", "Algebra"),
     ]
-
     interactions = [
         (1, "Add", True),
         (1, "Sub", True),
@@ -360,14 +238,10 @@ def main():
         (1, "Calculus", False),
         (1, "AdvancedMath", False),
     ]
-
     student_id = 1
     target_concept = "Calculus"
-
     try:
-        minimal_prereqs = suggest_minimal_prerequisites(
-            interactions, prerequisites, student_id, target_concept
-        )
+        minimal_prereqs = suggest_minimal_prerequisites(interactions, prerequisites, student_id, target_concept)
         print("Minimal set of new prerequisites for mastery with relevance scores:")
         if minimal_prereqs:
             for concept, score in minimal_prereqs:

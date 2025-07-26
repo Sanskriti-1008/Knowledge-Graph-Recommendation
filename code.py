@@ -17,6 +17,20 @@ from collections import defaultdict, deque
 from typing import List, Set, Tuple, Dict, Any
 
 ERR_GRAPH_TYPE_MSG = "Input graph must be a networkx.DiGraph instance."
+ERR_LIST_MSG = "{} must be a non-empty list."
+
+def validate_nonempty_list(obj, name):
+    """
+    Validates that obj is a non-empty list.
+
+    Args:
+        obj: The object to check.
+        name: String name of argument (for error message).
+    Raises:
+        ValueError: if check fails.
+    """
+    if obj is None or not isinstance(obj, list):
+        raise ValueError(ERR_LIST_MSG.format(name))
 
 def validate_graph_and_nodes(graph: nx.DiGraph, concepts: Set[Any], target: Any):
     """
@@ -54,8 +68,7 @@ def build_knowledge_graph(prerequisites: List[Tuple[Any, Any]]) -> nx.DiGraph:
     Raises:
         ValueError: On invalid input structure.
     """
-    if prerequisites is None:
-        raise ValueError("Prerequisites list cannot be None.")
+    validate_nonempty_list(prerequisites, "Prerequisites")
     if not all(isinstance(edge, tuple) and len(edge) == 2 for edge in prerequisites):
         raise ValueError("Each prerequisite must be a tuple of length 2.")
     graph = nx.DiGraph()
@@ -75,8 +88,7 @@ def student_mastery_lookup(interactions: List[Tuple[Any, Any, bool]]) -> Dict[An
     Raises:
         ValueError: On malformed tuples.
     """
-    if interactions is None:
-        raise ValueError("Interactions list cannot be None.")
+    validate_nonempty_list(interactions, "Interactions")
     mastery = defaultdict(set)
     for entry in interactions:
         if (
@@ -252,24 +264,6 @@ def min_cost_unmastered_path(
             selected.add(node)
     return selected
 
-def _validate_suggest_minimal_prerequisites_inputs(
-    interactions: List[Tuple[Any, Any, bool]],
-    prerequisites: List[Tuple[Any, Any]],
-    student_id: Any,
-    target_concept: Any,
-) -> None:
-    """
-    Sanity-check arguments for suggest_minimal_prerequisites. Raises ValueError on invalid input.
-    """
-    if interactions is None or not isinstance(interactions, list):
-        raise ValueError("Interactions must be a non-empty list.")
-    if prerequisites is None or not isinstance(prerequisites, list):
-        raise ValueError("Prerequisites must be a non-empty list.")
-    if student_id is None:
-        raise ValueError("student_id cannot be None.")
-    if target_concept is None:
-        raise ValueError("target_concept cannot be None.")
-
 def suggest_minimal_prerequisites(
     interactions: List[Tuple[Any, Any, bool]],
     prerequisites: List[Tuple[Any, Any]],
@@ -291,7 +285,13 @@ def suggest_minimal_prerequisites(
     Raises:
         ValueError: For invalid inputs.
     """
-    _validate_suggest_minimal_prerequisites_inputs(interactions, prerequisites, student_id, target_concept)
+    validate_nonempty_list(interactions, "Interactions")
+    validate_nonempty_list(prerequisites, "Prerequisites")
+    if student_id is None:
+        raise ValueError("student_id cannot be None.")
+    if target_concept is None:
+        raise ValueError("target_concept cannot be None.")
+
     graph = build_knowledge_graph(prerequisites)
     mastery = student_mastery_lookup(interactions)
     if student_id not in mastery:

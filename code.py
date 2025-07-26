@@ -9,7 +9,11 @@ for student mastery in an EdTech knowledge graph, using Personalized PageRank an
 import networkx as nx
 import numpy as np
 from collections import defaultdict, deque
-from typing import List, Set, Tuple, Dict, Any, Optional
+from typing import List, Set, Tuple, Dict, Any
+
+
+# Constants for error messages to avoid duplication
+ERR_GRAPH_TYPE_MSG = "Input graph must be a networkx.DiGraph instance."
 
 
 def build_knowledge_graph(prerequisites: List[Tuple[Any, Any]]) -> nx.DiGraph:
@@ -81,7 +85,7 @@ def personalized_pagerank(
         nx.NetworkXException: if pagerank fails.
     """
     if not isinstance(graph, nx.DiGraph):
-        raise ValueError("Input graph must be a networkx.DiGraph instance.")
+        raise ValueError(ERR_GRAPH_TYPE_MSG)
     if not isinstance(student_known, (set, list)):
         raise ValueError("student_known must be a set or list of known concept IDs.")
     nodes = set(graph.nodes)
@@ -123,7 +127,7 @@ def find_unmastered_prerequisites(
         nx.NetworkXNoPath if no path found to target.
     """
     if not isinstance(graph, nx.DiGraph):
-        raise ValueError("Input graph must be a networkx.DiGraph instance.")
+        raise ValueError(ERR_GRAPH_TYPE_MSG)
     if not isinstance(student_known, (set, list)):
         raise ValueError("student_known must be a set or list of known concept IDs.")
     nodes = set(graph.nodes)
@@ -185,7 +189,7 @@ def min_cost_unmastered_path(
         nx.NetworkXUnfeasible if flow problem is unsolvable.
     """
     if not isinstance(graph, nx.DiGraph):
-        raise ValueError("Input graph must be a networkx.DiGraph instance.")
+        raise ValueError(ERR_GRAPH_TYPE_MSG)
     nodes = set(graph.nodes)
     if target not in nodes:
         raise ValueError(f"Target concept '{target}' not found in knowledge graph nodes.")
@@ -233,6 +237,23 @@ def min_cost_unmastered_path(
     return selected
 
 
+def _validate_suggest_minimal_prerequisites_inputs(
+    interactions: List[Tuple[Any, Any, bool]],
+    prerequisites: List[Tuple[Any, Any]],
+    student_id: Any,
+    target_concept: Any,
+) -> None:
+    """Helper function to validate inputs of suggest_minimal_prerequisites."""
+    if interactions is None or not isinstance(interactions, list):
+        raise ValueError("Interactions must be a non-empty list.")
+    if prerequisites is None or not isinstance(prerequisites, list):
+        raise ValueError("Prerequisites must be a non-empty list.")
+    if student_id is None:
+        raise ValueError("student_id cannot be None.")
+    if target_concept is None:
+        raise ValueError("target_concept cannot be None.")
+
+
 def suggest_minimal_prerequisites(
     interactions: List[Tuple[Any, Any, bool]],
     prerequisites: List[Tuple[Any, Any]],
@@ -251,14 +272,9 @@ def suggest_minimal_prerequisites(
     Raises:
         ValueError if inputs are invalid or student not found.
     """
-    if interactions is None or not isinstance(interactions, list):
-        raise ValueError("Interactions must be a non-empty list.")
-    if prerequisites is None or not isinstance(prerequisites, list):
-        raise ValueError("Prerequisites must be a non-empty list.")
-    if student_id is None:
-        raise ValueError("student_id cannot be None.")
-    if target_concept is None:
-        raise ValueError("target_concept cannot be None.")
+    _validate_suggest_minimal_prerequisites_inputs(
+        interactions, prerequisites, student_id, target_concept
+    )
 
     graph = build_knowledge_graph(prerequisites)
     mastery = student_mastery_lookup(interactions)

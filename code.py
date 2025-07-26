@@ -27,7 +27,7 @@ def validate_nonempty_list(obj, name):
         obj: The object to check.
         name: String name for the error message.
     Raises:
-        ValueError: if not a list or is None
+        ValueError: if not a list, is None, or is empty.
     """
     if obj is None or not isinstance(obj, list) or not obj:
         raise ValueError(ERR_LIST_MSG.format(name))

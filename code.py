@@ -11,8 +11,6 @@ import numpy as np
 from collections import defaultdict, deque
 from typing import List, Set, Tuple, Dict, Any
 
-# -------------------- Data Ingestion ------------------------
-
 def build_knowledge_graph(prerequisites: List[Tuple[Any, Any]]) -> nx.DiGraph:
     """
     Constructs a directed graph (DiGraph) from prerequisites.
@@ -21,9 +19,9 @@ def build_knowledge_graph(prerequisites: List[Tuple[Any, Any]]) -> nx.DiGraph:
     Returns:
         A directed acyclic/cyclic graph.
     """
-    G = nx.DiGraph()
-    G.add_edges_from(prerequisites)
-    return G
+    graph = nx.DiGraph()
+    graph.add_edges_from(prerequisites)
+    return graph
 
 def student_mastery_lookup(
     interactions: List[Tuple[Any, Any, bool]]
@@ -41,8 +39,6 @@ def student_mastery_lookup(
             mastery[student_id].add(concept_id)
     return dict(mastery)
 
-# -------------------- Personalized PageRank ------------------------
-
 def personalized_pagerank(
     graph: nx.DiGraph,
     student_known: Set[Any],
@@ -58,7 +54,6 @@ def personalized_pagerank(
     Returns:
         Dict of concept_id -> importance score.
     """
-    # Use dict.fromkeys for reliable initialization
     personalization = dict.fromkeys(graph.nodes, 0.0)
     for k in student_known:
         personalization[k] = 1.0
@@ -66,11 +61,7 @@ def personalized_pagerank(
     s = sum(personalization.values())
     if s > 0:
         personalization = {k: v / s for k, v in personalization.items()}
-
-    pr = nx.pagerank(graph, alpha=alpha, personalization=personalization)
-    return pr
-
-# -------------------- Prerequisite Extraction via Min-Cost Flow -----------------------
+    return nx.pagerank(graph, alpha=alpha, personalization=personalization)
 
 def find_unmastered_prerequisites(
     graph: nx.DiGraph,
@@ -79,7 +70,6 @@ def find_unmastered_prerequisites(
 ) -> Set[Any]:
     """
     Finds all unmastered prerequisite concepts required for mastering the target.
-
     Args:
         graph: The knowledge graph.
         student_known: Set of mastered concept IDs.
@@ -87,27 +77,22 @@ def find_unmastered_prerequisites(
     Returns:
         Set of directly/indirectly required unmastered concept IDs.
     """
-    # Collect all reachable nodes from student's known set up to target
     visited = set(student_known)
     queue = deque(student_known)
-    # Set to accumulate unmastered prerequisites found in paths
     unmastered = set()
 
     while queue:
         curr = queue.popleft()
         for neighbor in graph.successors(curr):
             if neighbor == target:
-                continue  # ignore target node here; handled later
+                continue
             if neighbor not in visited:
                 if neighbor not in student_known:
                     unmastered.add(neighbor)
                 visited.add(neighbor)
                 queue.append(neighbor)
 
-    # Extract all simple paths from any known to target and collect any unmastered concepts
-    # Only consider paths within visited nodes to limit complexity
     relevant_nodes = visited.union({target})
-
     for start in student_known:
         try:
             for path in nx.all_simple_paths(graph.subgraph(relevant_nodes), start, target):
@@ -116,7 +101,6 @@ def find_unmastered_prerequisites(
                         unmastered.add(concept)
         except nx.NetworkXNoPath:
             continue
-
     return unmastered
 
 def min_cost_unmastered_path(
@@ -129,7 +113,6 @@ def min_cost_unmastered_path(
     """
     Finds a minimum-count set of candidate_unmastered nodes covering at least one path from any known concept to target.
     Uses min-cost flow by converting the problem into a directed flow network.
-
     Args:
         graph: Knowledge graph.
         student_known: set of mastered concept IDs.
@@ -139,47 +122,35 @@ def min_cost_unmastered_path(
     Returns:
         Set of selected unmastered prerequisites (minimal set).
     """
-    # Build a subgraph of only relevant nodes (from any known/mastered node to target)
     subgraph_nodes = set(student_known).union(candidate_unmastered).union({target})
     subgraph = graph.subgraph(subgraph_nodes).copy()
-
-    # Artificial SOURCE node connects to all known (capacity=1, cost=0)
     costed_graph = nx.DiGraph()
     source = '_SOURCE'
     sink = target
     for node in student_known:
         costed_graph.add_edge(source, node, capacity=1, weight=0)
     for u, v in subgraph.edges:
-        weight = 1 - pagerank_score.get(v, 0.0)  # Prefer higher PageRank nodes (smaller cost)
+        weight = 1 - pagerank_score.get(v, 0.0)
         costed_graph.add_edge(u, v, capacity=1, weight=weight)
-
-    # Ensure only candidate_unmastered nodes can be "bought" (via artificial node splitting)
     for node in candidate_unmastered:
         split_node = f"{node}_IN"
-        # All incoming edges of `node` go to split_node, split_node->node
         for pred in subgraph.predecessors(node):
             if pred != source:
                 w = 1 - pagerank_score.get(node, 0.0)
                 costed_graph.add_edge(pred, split_node, capacity=1, weight=w)
         costed_graph.add_edge(split_node, node, capacity=1, weight=0)
-
-    # Set large demand (as many as paths as there are known concept to target)
     n_paths = len(student_known)
     demand = {source: -n_paths, sink: n_paths}
     for node in costed_graph.nodes:
         if node not in demand:
             demand[node] = 0
-
     flow_dict = nx.max_flow_min_cost(costed_graph, source, sink)
-    # Extract which candidate_unmastered nodes are on any flow-path
     selected = set()
     for node in candidate_unmastered:
         split_node = f"{node}_IN"
         if flow_dict.get(split_node, {}).get(node, 0) > 0:
             selected.add(node)
     return selected
-
-# ---------------------- Main Pipeline -------------------------
 
 def suggest_minimal_prerequisites(
     interactions: List[Tuple[Any, Any, bool]],
@@ -200,17 +171,10 @@ def suggest_minimal_prerequisites(
     graph = build_knowledge_graph(prerequisites)
     mastery = student_mastery_lookup(interactions)
     student_known = mastery.get(student_id, set())
-
-    # Step 1: PageRank score 
     pagerank_scores = personalized_pagerank(graph, student_known, target_concept)
-
-    # Step 2: Find all unmastered prerequisite nodes on any path
     all_unmastered = find_unmastered_prerequisites(graph, student_known, target_concept)
-
     if not all_unmastered:
         return []
-
-    # Step 3: Min-cost flow to pick smallest set, biased by PageRank
     minimal_set = min_cost_unmastered_path(
         graph,
         student_known,
@@ -218,23 +182,20 @@ def suggest_minimal_prerequisites(
         all_unmastered,
         pagerank_scores
     )
-
-    # Output: sorted by PageRank
     result = [(c, pagerank_scores.get(c, 0.0)) for c in minimal_set]
     result.sort(key=lambda x: -x[1])
     return result
 
-# --------------------- Example Usage -------------------------
-
-if __name__ == '__main__':
-    # Example knowledge graph and student data
+def main():
+    """
+    Example usage entry point: Suggest minimal prerequisites and display them for a given student/target.
+    """
     prerequisites = [
         ('Add', 'Multiply'),
         ('Sub', 'Divide'),
         ('Multiply', 'Algebra'),
         ('Divide', 'Algebra'),
         ('Algebra', 'Calculus'),
-        # Cycle:
         ('Calculus', 'AdvancedMath'),
         ('AdvancedMath', 'Algebra')
     ]
@@ -251,11 +212,12 @@ if __name__ == '__main__':
 
     student_id = 1
     target_concept = 'Calculus'
-
     minimal_prereqs = suggest_minimal_prerequisites(
         interactions, prerequisites, student_id, target_concept
     )
-
     print("Minimal set of new prerequisites for mastery with relevance scores:")
     for concept, score in minimal_prereqs:
         print(f"{concept}: {score:.4f}")
+
+if __name__ == '__main__':
+    main()

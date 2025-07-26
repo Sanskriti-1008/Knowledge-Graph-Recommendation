@@ -58,7 +58,8 @@ def personalized_pagerank(
     Returns:
         Dict of concept_id -> importance score.
     """
-    personalization = {v: 0.0 for v in graph.nodes}
+    # Use dict.fromkeys for reliable initialization
+    personalization = dict.fromkeys(graph.nodes, 0.0)
     for k in student_known:
         personalization[k] = 1.0
     personalization[target] = 1.0
@@ -86,32 +87,36 @@ def find_unmastered_prerequisites(
     Returns:
         Set of directly/indirectly required unmastered concept IDs.
     """
-    # BFS from starting points (student's mastered) towards the target, mark visited
+    # Collect all reachable nodes from student's known set up to target
     visited = set(student_known)
     queue = deque(student_known)
-    required = set()
+    # Set to accumulate unmastered prerequisites found in paths
+    unmastered = set()
+
     while queue:
         curr = queue.popleft()
         for neighbor in graph.successors(curr):
-            if neighbor == target or neighbor in visited:
-                continue
-            if neighbor not in student_known:
-                required.add(neighbor)
-            visited.add(neighbor)
-            queue.append(neighbor)
-    # Now extract all simple paths from any known to target, collect unmastered along any path
-    paths = []
+            if neighbor == target:
+                continue  # ignore target node here; handled later
+            if neighbor not in visited:
+                if neighbor not in student_known:
+                    unmastered.add(neighbor)
+                visited.add(neighbor)
+                queue.append(neighbor)
+
+    # Extract all simple paths from any known to target and collect any unmastered concepts
+    # Only consider paths within visited nodes to limit complexity
+    relevant_nodes = visited.union({target})
+
     for start in student_known:
         try:
-            for path in nx.all_simple_paths(graph, start, target):
-                paths.append(path)
+            for path in nx.all_simple_paths(graph.subgraph(relevant_nodes), start, target):
+                for concept in path:
+                    if concept != target and concept not in student_known:
+                        unmastered.add(concept)
         except nx.NetworkXNoPath:
             continue
-    unmastered = set()
-    for path in paths:
-        for concept in path:
-            if concept != target and concept not in student_known:
-                unmastered.add(concept)
+
     return unmastered
 
 def min_cost_unmastered_path(

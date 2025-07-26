@@ -147,6 +147,7 @@ def find_unmastered_prerequisites(graph: nx.DiGraph, student_known: Set[Any], ta
     path_unmastered = gather_path_unmastered(graph, student_known, target, relevant_nodes)
     return unmastered.union(path_unmastered)
 
+# --------- UPDATED FUNCTION REPLACED BELOW ---------
 def min_cost_unmastered_path(
     graph: nx.DiGraph,
     student_known: Set[Any],
@@ -156,29 +157,39 @@ def min_cost_unmastered_path(
 ) -> Set[Any]:
     """
     Min-cost flow: minimal, most relevant unmastered prerequisite selection.
+    Refactored to reduce cognitive complexity per maintainability feedback.
     """
     validate_graph_and_nodes(graph, student_known.union(candidate_unmastered), target)
     if not isinstance(pagerank_score, dict):
         raise ValueError("pagerank_score must be a dictionary of node scores.")
-
-    subgraph_nodes = set(student_known).union(candidate_unmastered).union({target})
+    
+    subgraph_nodes = student_known.union(candidate_unmastered).union({target})
     subgraph = graph.subgraph(subgraph_nodes).copy()
     costed_graph = nx.DiGraph()
     source = "_SOURCE"
     sink = target
 
-    for node in student_known:
-        costed_graph.add_edge(source, node, capacity=1, weight=0)
-    for u, v in subgraph.edges:
-        weight = 1 - pagerank_score.get(v, 0.0)
-        costed_graph.add_edge(u, v, capacity=1, weight=weight)
-    for node in candidate_unmastered:
-        split_node = f"{node}_IN"
-        for pred in subgraph.predecessors(node):
-            if pred != source:
-                w = 1 - pagerank_score.get(node, 0.0)
-                costed_graph.add_edge(pred, split_node, capacity=1, weight=w)
-        costed_graph.add_edge(split_node, node, capacity=1, weight=0)
+    def add_source_edges():
+        for node in student_known:
+            costed_graph.add_edge(source, node, capacity=1, weight=0)
+
+    def add_subgraph_edges():
+        for u, v in subgraph.edges:
+            weight = 1 - pagerank_score.get(v, 0.0)
+            costed_graph.add_edge(u, v, capacity=1, weight=weight)
+
+    def add_split_nodes():
+        for node in candidate_unmastered:
+            split_node = f"{node}_IN"
+            for pred in subgraph.predecessors(node):
+                if pred != source:
+                    w = 1 - pagerank_score.get(node, 0.0)
+                    costed_graph.add_edge(pred, split_node, capacity=1, weight=w)
+            costed_graph.add_edge(split_node, node, capacity=1, weight=0)
+
+    add_source_edges()
+    add_subgraph_edges()
+    add_split_nodes()
 
     n_paths = len(student_known)
     demand = {source: -n_paths, sink: n_paths}
@@ -190,13 +201,14 @@ def min_cost_unmastered_path(
         flow_dict = nx.max_flow_min_cost(costed_graph, source, sink)
     except nx.NetworkXUnfeasible as e:
         raise RuntimeError(f"Min-cost flow computation failed: {e}")
-
+    
     selected = set()
     for node in candidate_unmastered:
         split_node = f"{node}_IN"
         if flow_dict.get(split_node, {}).get(node, 0) > 0:
             selected.add(node)
     return selected
+# --------- END OF UPDATED FUNCTION ---------
 
 def suggest_minimal_prerequisites(
     interactions: List[Tuple[Any, Any, bool]],

@@ -147,7 +147,6 @@ def find_unmastered_prerequisites(graph: nx.DiGraph, student_known: Set[Any], ta
     path_unmastered = gather_path_unmastered(graph, student_known, target, relevant_nodes)
     return unmastered.union(path_unmastered)
 
-# --------- UPDATED SIGNIFICANTLY REFACTORED FUNCTION BELOW ---------
 def min_cost_unmastered_path(
     graph: nx.DiGraph,
     student_known: Set[Any],
@@ -157,7 +156,7 @@ def min_cost_unmastered_path(
 ) -> Set[Any]:
     """
     Min-cost flow: minimal, most relevant unmastered prerequisite selection.
-    Refactored to reduce cognitive complexity.
+    Refactored to reduce cognitive complexity and remove unused variables.
     """
     validate_graph_and_nodes(graph, student_known.union(candidate_unmastered), target)
     if not isinstance(pagerank_score, dict):
@@ -190,19 +189,10 @@ def min_cost_unmastered_path(
             add_pred_edges(subgraph, node, split_node)
             costed_graph.add_edge(split_node, node, capacity=1, weight=0)
 
-    def initialize_demand(n_paths):
-        demand = {source: -n_paths, sink: n_paths}
-        for node in costed_graph.nodes:
-            if node not in demand:
-                demand[node] = 0
-        return demand
-
     add_source_edges()
     add_subgraph_edges()
     add_split_nodes()
-
-    n_paths = len(student_known)
-    demand = initialize_demand(n_paths)
+    # demand variable was removed as it was unused
 
     try:
         flow_dict = nx.max_flow_min_cost(costed_graph, source, sink)
@@ -217,7 +207,6 @@ def min_cost_unmastered_path(
         }
 
     return collect_selected()
-# --------- END OF NEW FUNCTION ---------
 
 def suggest_minimal_prerequisites(
     interactions: List[Tuple[Any, Any, bool]],
